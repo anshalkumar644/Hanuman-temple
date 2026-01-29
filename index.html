@@ -1,0 +1,776 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Home, Calendar, Clock, Settings, Heart, Menu, X, Edit, Save, LogOut, Bell, Image as ImageIcon, Plus, Upload, Users, Phone, FileText, Printer, Download, Lock, Search, MapPin, ChevronRight, Play, Pause, Volume2, ArrowLeft, Sparkles, Music, Trash2, CreditCard } from 'lucide-react';
+
+// --- ASSETS & CONFIGURATION ---
+const ASSETS = {
+  IDOL: "https://i.pinimg.com/736x/88/26/66/88266657930810795159670188657688.jpg", 
+  BELL_SOUND: "https://assets.mixkit.co/active_storage/sfx/222/222-preview.mp3",
+  AARTI_SOUND: "https://archive.org/download/HanumanChalisa_362/HanumanChalisa.mp3"
+};
+
+const INITIAL_DATA = {
+  templeName: "SHRI HANUMAN MANDIR",
+  templePlace: "Bakhraur", 
+  location: "Bakhraur, Gopalganj, Bihar",
+  mapLocation: "Bakhraur, Gopalganj, Bihar",
+  notice: "आगामी मंगलवार को विशाल भंडारे का आयोजन किया जाएगा। सभी भक्त सादर आमंत्रित हैं।",
+  dailyQuote: "कवन सो काज कठिन जग माहीं। जो नहिं होइ तात तुम्ह पाहीं।।",
+  adminPassword: "jaihanuman",
+  murtiImage: ASSETS.IDOL,
+  
+  qrCodeUrl: "", 
+  upiId: "hanumanmandir@upi",
+  bankAccountName: "Shri Hanuman Seva Samiti",
+  bankAccountNumber: "1234567890",
+  bankIfsc: "BANK0001234",
+
+  aartiTimings: [
+    { id: 1, name: "मंगल आरती", time: "05:00 AM" },
+    { id: 2, name: "शृंगार आरती", time: "08:00 AM" },
+    { id: 3, name: "भोग आरती", time: "12:00 PM" },
+    { id: 4, name: "संध्या आरती", time: "07:00 PM" },
+    { id: 5, name: "शयन आरती", time: "10:00 PM" }
+  ],
+  upcomingEvents: [
+    { id: 1, name: "हनुमान जयंती", date: "23 अप्रैल 2026" },
+    { id: 2, name: "सुंदरकांड पाठ", date: "हर मंगलवार" }
+  ],
+  darshanImages: [
+    "https://images.unsplash.com/photo-1582234057697-393273e91962?w=500&h=500&fit=crop",
+    "https://images.unsplash.com/photo-1621350615967-172559a43a18?w=500&h=500&fit=crop"
+  ],
+  communityMembers: [
+    { id: 1, name: "श्री राम शर्मा", role: "अध्यक्ष (President)", phone: "9876543210", photo: "" },
+    { id: 2, name: "श्री मोहन दास", role: "सचिव (Secretary)", phone: "9123456780", photo: "" }
+  ],
+  donationHistory: []
+};
+
+// --- HELPER: Number to Words ---
+const numToWords = (num) => {
+    const a = ['','One ','Two ','Three ','Four ', 'Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
+    const b = ['', '', 'Twenty','Thirty','Forty','Fifty', 'Sixty','Seventy','Eighty','Ninety'];
+    if ((num = num.toString()).length > 9) return 'overflow';
+    let n = ('000000000' + num).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+    if (!n) return; 
+    let str = '';
+    str += (n[1] != 0) ? (a[Number(n[1])] || b[n[1][0]] + ' ' + a[n[1][1]]) + 'Crore ' : '';
+    str += (n[2] != 0) ? (a[Number(n[2])] || b[n[2][0]] + ' ' + a[n[2][1]]) + 'Lakh ' : '';
+    str += (n[3] != 0) ? (a[Number(n[3])] || b[n[3][0]] + ' ' + a[n[3][1]]) + 'Thousand ' : '';
+    str += (n[4] != 0) ? (a[Number(n[4])] || b[n[4][0]] + ' ' + a[n[4][1]]) + 'Hundred ' : '';
+    str += (n[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0]] + ' ' + a[n[5][1]]) + 'Only' : 'Only';
+    return str;
+};
+
+// --- MAIN APP COMPONENT ---
+export default function App() {
+  const [activeTab, setActiveTab] = useState('home');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [siteData, setSiteData] = useState(INITIAL_DATA);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const [loginError, setLoginError] = useState('');
+
+  // Load Data on Start
+  useEffect(() => {
+    const savedData = localStorage.getItem('hanuman_temple_full_v4'); 
+    if (savedData) setSiteData(JSON.parse(savedData));
+  }, []);
+
+  // Save Data Helper
+  const saveData = (newData) => {
+    setSiteData(newData);
+    localStorage.setItem('hanuman_temple_full_v4', JSON.stringify(newData));
+  };
+
+  const handleNavClick = (tabId) => {
+    setActiveTab(tabId);
+    setIsMobileMenuOpen(false);
+  };
+
+  const navItems = [
+    { id: 'home', label: 'Home', icon: <Home size={20} /> },
+    { id: 'puja', label: 'पूजा करें (Puja)', icon: <Bell size={20} className="text-yellow-300 animate-pulse" /> },
+    { id: 'darshan', label: 'Darshan', icon: <ImageIcon size={20} /> },
+    { id: 'schedule', label: 'Schedule', icon: <Clock size={20} /> },
+    { id: 'events', label: 'Events', icon: <Calendar size={20} /> },
+    { id: 'members', label: 'Committee', icon: <Users size={20} /> }, 
+    { id: 'donate', label: 'Donate', icon: <Heart size={20} /> },
+    { id: 'admin', label: 'Admin', icon: <Settings size={20} /> },
+  ];
+
+  return (
+    <div className="min-h-screen bg-orange-50 font-sans text-gray-800 print:bg-white">
+      {/* Navigation */}
+      <nav className="bg-orange-600 text-white shadow-lg sticky top-0 z-50 print:hidden">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-2 font-bold text-xl cursor-pointer" onClick={() => {setActiveTab('home'); setIsMobileMenuOpen(false);}}>
+              <div className="bg-yellow-400 p-1 rounded-full text-orange-700">ॐ</div>
+              <div className="flex flex-col leading-tight">
+                <span className="uppercase">{siteData.templeName}</span>
+                <span className="text-xs text-orange-200">{siteData.templePlace}</span>
+              </div>
+            </div>
+            {/* Desktop Nav */}
+            <div className="hidden md:flex space-x-6">
+              {navItems.map((item) => (
+                <button key={item.id} onClick={() => setActiveTab(item.id)} className={`flex items-center space-x-1 px-3 py-2 rounded-md transition-colors ${activeTab === item.id ? 'bg-orange-700 text-yellow-200 shadow-inner' : 'hover:bg-orange-500'}`}>
+                  {item.icon}<span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+            {/* Mobile Nav Button */}
+            <div className="md:hidden">
+              <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>{isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}</button>
+            </div>
+          </div>
+        </div>
+        {/* Mobile Nav Menu */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden bg-orange-700 pb-4">
+            {navItems.map((item) => (
+              <button key={item.id} onClick={() => {setActiveTab(item.id); setIsMobileMenuOpen(false);}} className="block w-full text-left px-4 py-3 hover:bg-orange-600 flex items-center space-x-3">
+                {item.icon}<span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </nav>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 py-6 print:p-0 print:max-w-none">
+        {activeTab !== 'admin' && activeTab !== 'puja' && (
+          <div className="mb-6 bg-yellow-100 border-l-4 border-yellow-500 p-4 rounded shadow-sm flex items-start animate-fade-in-down print:hidden">
+            <Bell className="text-yellow-600 mr-3 mt-1 flex-shrink-0" />
+            <div>
+              <h3 className="font-bold text-yellow-800">सूचना / Notice:</h3>
+              <p className="text-yellow-900">{siteData.notice}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Tab Routing */}
+        {activeTab === 'home' && <HomeView data={siteData} />}
+        {activeTab === 'puja' && <DigitalPujaView data={siteData} />}
+        {activeTab === 'darshan' && <DarshanView data={siteData} />}
+        {activeTab === 'schedule' && <ScheduleView data={siteData} />}
+        {activeTab === 'events' && <EventsView data={siteData} />}
+        {activeTab === 'members' && <MembersView data={siteData} />}
+        {activeTab === 'donate' && <DonateView data={siteData} />}
+        {activeTab === 'admin' && (
+          <AdminView 
+            isLoggedIn={isAdminLoggedIn} 
+            setIsLoggedIn={setIsAdminLoggedIn}
+            data={siteData}
+            onSave={saveData}
+            passwordInput={adminPasswordInput}
+            setPasswordInput={setAdminPasswordInput}
+            error={loginError}
+            setError={setLoginError}
+            updateData={saveData} 
+          />
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-orange-800 text-orange-200 py-8 mt-12 print:hidden">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <p className="font-bold text-lg mb-2">|| जय श्री राम || जय हनुमान ||</p>
+          <div className="flex items-center justify-center gap-2"><MapPin size={16} /><p>{siteData.location}</p></div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+// --- DIGITAL PUJA PAGE ---
+function DigitalPujaView({ data }) {
+  const [flowerRain, setFlowerRain] = useState(false);
+  const [prasad, setPrasad] = useState(false);
+  const [aarti, setAarti] = useState(false);
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const audioRef = useRef(null);
+  const bellRef = useRef(null);
+
+  const toggleAudio = () => {
+    if(audioPlaying) { audioRef.current.pause(); setAudioPlaying(false); }
+    else { audioRef.current.play(); setAudioPlaying(true); }
+  };
+
+  const ringBell = () => {
+    if(bellRef.current) {
+        bellRef.current.currentTime = 0;
+        bellRef.current.play();
+        const bells = document.querySelectorAll('.bell-icon');
+        bells.forEach(b => {
+             b.classList.remove('animate-swing');
+             void b.offsetWidth; // trigger reflow
+             b.classList.add('animate-swing');
+        });
+    }
+  };
+
+  const handleFlower = () => { setFlowerRain(true); setTimeout(() => setFlowerRain(false), 4000); };
+  const handlePrasad = () => { setPrasad(true); setTimeout(() => setPrasad(false), 5000); };
+
+  // Auto-start audio on mount (browser policy permitting)
+  useEffect(() => {
+      if(audioRef.current) {
+          audioRef.current.volume = 0.4;
+          audioRef.current.play().then(() => setAudioPlaying(true)).catch(() => console.log("Auto-play blocked"));
+      }
+  }, []);
+
+  return (
+    <div className="bg-black/90 rounded-xl overflow-hidden min-h-[700px] relative border-4 border-yellow-600 shadow-2xl">
+      <audio ref={audioRef} loop src={ASSETS.AARTI_SOUND} />
+      <audio ref={bellRef} src={ASSETS.BELL_SOUND} />
+
+      <div className="absolute inset-0 bg-[url('https://www.pixelstalk.net/wp-content/uploads/2016/06/Free-Download-Lord-Hanuman-HD-Wallpapers.jpg')] bg-cover bg-center opacity-40"></div>
+      
+      {/* Hanging Bells */}
+      <div className="absolute top-0 left-10 z-20 flex flex-col items-center cursor-pointer" onClick={ringBell}>
+         <div className="h-24 w-1 bg-gradient-to-b from-yellow-700 to-yellow-400"></div>
+         <div className="bell-icon text-7xl drop-shadow-lg transition-transform origin-top">🔔</div>
+      </div>
+      <div className="absolute top-0 right-10 z-20 flex flex-col items-center cursor-pointer" onClick={ringBell}>
+         <div className="h-24 w-1 bg-gradient-to-b from-yellow-700 to-yellow-400"></div>
+         <div className="bell-icon text-7xl drop-shadow-lg transition-transform origin-top">🔔</div>
+      </div>
+
+      {/* Main Idol Area */}
+      <div className="relative z-10 flex flex-col items-center justify-center h-full pt-20">
+         <div className="relative">
+             <div className="w-80 h-[450px] md:w-[400px] md:h-[550px] bg-black/20 rounded-t-full border-4 border-yellow-500 shadow-[0_0_60px_rgba(255,165,0,0.5)] overflow-hidden">
+                <img src={data.murtiImage || ASSETS.IDOL} alt="Hanuman Ji" className="w-full h-full object-cover" />
+             </div>
+             {/* Animations */}
+             {flowerRain && <div className="absolute inset-0 pointer-events-none animate-rain text-3xl">🌸🌼🌹🌺🌸🌼</div>}
+             {aarti && <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-8xl animate-circular-motion z-30 drop-shadow-[0_0_20px_rgba(255,200,0,1)]">🔥</div>}
+             {prasad && <div className="absolute bottom-4 left-1/2 -translate-x-1/2 animate-bounce-in text-6xl drop-shadow-lg bg-white/90 p-2 rounded-full">🥥🍎</div>}
+         </div>
+      </div>
+
+      {/* Controls */}
+      <div className="absolute bottom-0 w-full bg-gradient-to-t from-black via-black/80 to-transparent p-6">
+         <div className="flex justify-center gap-4 md:gap-8 max-w-2xl mx-auto">
+             <button onClick={ringBell} className="flex flex-col items-center text-yellow-300 hover:scale-110 transition"><span className="text-3xl">🔔</span><span className="text-xs font-bold text-white">घंटी</span></button>
+             <button onClick={handleFlower} className="flex flex-col items-center text-pink-300 hover:scale-110 transition"><span className="text-3xl">🌸</span><span className="text-xs font-bold text-white">पुष्प</span></button>
+             <button onClick={() => setAarti(!aarti)} className={`flex flex-col items-center hover:scale-110 transition ${aarti ? 'text-orange-500' : 'text-orange-200'}`}><span className="text-3xl">🔥</span><span className="text-xs font-bold text-white">आरती</span></button>
+             <button onClick={handlePrasad} className="flex flex-col items-center text-green-300 hover:scale-110 transition"><span className="text-3xl">🥥</span><span className="text-xs font-bold text-white">प्रसाद</span></button>
+             <button onClick={toggleAudio} className="flex flex-col items-center text-white hover:scale-110 transition"><span className="text-3xl">{audioPlaying ? <Volume2/> : <Play/>}</span><span className="text-xs font-bold text-white">Dhun</span></button>
+         </div>
+      </div>
+
+      <style>{`
+        @keyframes swing { 0% { transform: rotate(0); } 20% { transform: rotate(15deg); } 40% { transform: rotate(-10deg); } 60% { transform: rotate(5deg); } 80% { transform: rotate(-5deg); } 100% { transform: rotate(0); } }
+        .animate-swing { animation: swing 1s ease-in-out; }
+        @keyframes rain { 0% { transform: translateY(-100%); opacity: 0; } 50% { opacity: 1; } 100% { transform: translateY(100%); opacity: 0; } }
+        .animate-rain { animation: rain 2s infinite linear; }
+        @keyframes circular { 0% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-20px) rotate(10deg); } 100% { transform: translateX(-50%) translateY(0); } }
+        .animate-circular-motion { animation: circular 2s infinite ease-in-out; }
+      `}</style>
+    </div>
+  );
+}
+
+// --- RECEIPT TEMPLATE (BEIGE DESIGN) ---
+const ReceiptTemplate = ({ receipt, templeData }) => {
+    if (!receipt) return null;
+    return (
+        <div id="receipt-content" className="bg-[#fcfcd4] p-8 border border-gray-300 w-full max-w-[800px] mx-auto text-black font-serif relative overflow-hidden print:w-full print:max-w-none">
+            <div className="text-center mb-2">
+                <h1 className="text-4xl font-extrabold text-[#3d1e1e] tracking-wider uppercase" style={{fontFamily: 'Times New Roman, serif'}}>SHRI HANUMAN MANDIR</h1>
+                <h2 className="text-lg font-bold text-gray-800 mt-1">{templeData.location}</h2>
+            </div>
+            <div className="flex justify-between items-end mb-6 mt-4 text-lg font-bold px-2">
+                <div className="w-1/3">Receipt No: <span className="ml-2 font-mono text-xl">{receipt.receiptNo}</span></div>
+                <div className="w-1/3 text-center"><span className="border-b-2 border-black text-2xl font-black px-2">RECEIPT</span></div>
+                <div className="w-1/3 text-right">Date: <span className="border-b-2 border-dotted border-gray-800 px-2 ml-1 min-w-[120px] inline-block text-center">{receipt.date}</span></div>
+            </div>
+            <div className="space-y-5 text-xl leading-loose px-2 font-medium text-gray-900">
+                <div className="flex items-baseline"><span className="whitespace-nowrap mr-2">Received with thanks from:</span><span className="flex-1 border-b-2 border-dotted border-gray-700 font-bold px-2 text-black">{receipt.name}</span></div>
+                <div className="flex items-baseline"><span className="whitespace-nowrap mr-2">Address:</span><span className="flex-1 border-b-2 border-dotted border-gray-700 font-bold px-2 text-black">{receipt.address}</span></div>
+                <div className="flex items-baseline"><span className="whitespace-nowrap mr-2">The Sum of Rupees (in words):</span><span className="flex-1 border-b-2 border-dotted border-gray-700 font-bold px-2 capitalize text-black">{numToWords(receipt.amount)} Only</span></div>
+                <div className="flex items-baseline mt-2"><span className="whitespace-nowrap mr-2">By</span><span className="font-bold mr-4">{receipt.mode}</span><span className="whitespace-nowrap mr-2">On Account of:</span><span className="flex-1 border-b-2 border-dotted border-gray-700 font-bold px-2 text-black">{receipt.purpose}</span></div>
+            </div>
+            <div className="flex justify-between items-end mt-12 px-2">
+                <div className="mb-2"><div className="font-bold text-3xl border-2 border-gray-800 px-4 py-2 bg-white/50 rounded shadow-sm">Amount: ₹ {receipt.amount}/-</div></div>
+                <div className="relative mr-8">
+                    <div className="w-32 h-32 border-4 border-red-700 rounded-full flex items-center justify-center absolute -top-20 right-10 opacity-80 rotate-[-15deg] mix-blend-multiply pointer-events-none">
+                        <div className="w-[90%] h-[90%] border border-red-700 rounded-full flex items-center justify-center text-center text-red-800 text-[9px] font-bold uppercase leading-tight p-1">Shri Hanuman<br/>Mandir Samiti<br/>{templeData.templePlace}<br/>Gopalganj</div>
+                    </div>
+                    <div className="text-center relative z-10"><div className="font-script text-4xl text-blue-900 -rotate-12 mb-1">Authorized</div><div className="text-sm font-bold border-t border-gray-600 pt-1 w-32 mx-auto">Signature</div></div>
+                </div>
+            </div>
+            <style>{`@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap'); .font-script { font-family: 'Great Vibes', cursive; }`}</style>
+        </div>
+    );
+};
+
+// --- SUB COMPONENTS ---
+
+function HomeView({ data }) {
+  // Use mapLocation from data, or fallback to location
+  const mapQuery = data.mapLocation || data.location || "Bakhraur, Gopalganj, Bihar";
+  const mapEmbedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+
+  return (
+    <div className="space-y-8 print:hidden">
+      <div className="relative h-64 md:h-96 rounded-2xl overflow-hidden shadow-xl bg-orange-200">
+        <img src={data.darshanImages[0]} alt="Temple" className="w-full h-full object-cover"/>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-6 md:p-12 text-white">
+          <h1 className="text-3xl md:text-5xl font-bold mb-2 uppercase">{data.templeName}</h1>
+           <h2 className="text-xl md:text-3xl font-semibold text-yellow-200">{data.templePlace}</h2>
+        </div>
+      </div>
+      <div className="bg-white p-6 rounded-xl shadow-md text-center border-t-4 border-orange-500">
+        <h2 className="text-xl font-bold text-orange-600 mb-2">आज का सुविचार</h2>
+        <p className="text-2xl font-serif italic text-gray-700">"{data.dailyQuote}"</p>
+      </div>
+
+      {/* --- MINI MAP SECTION --- */}
+      <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-green-600">
+          <div className="flex items-center mb-4 text-green-700">
+              <MapPin className="mr-2" />
+              <h2 className="text-xl font-bold">मंदिर का स्थान (Location)</h2>
+          </div>
+          <div className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden border border-gray-300">
+              <iframe 
+                  title="Temple Map"
+                  width="100%" 
+                  height="100%" 
+                  frameBorder="0" 
+                  scrolling="no" 
+                  marginHeight="0" 
+                  marginWidth="0" 
+                  src={mapEmbedUrl}
+              ></iframe>
+          </div>
+          <p className="text-sm text-gray-500 mt-2 text-center flex items-center justify-center">
+              <MapPin size={14} className="mr-1"/> {data.location}
+          </p>
+      </div>
+    </div>
+  );
+}
+
+function DarshanView({ data }) {
+  const handleDownload = async (imgUrl) => {
+      const link = document.createElement('a');
+      link.href = imgUrl;
+      link.download = `Hanuman_Darshan_${Date.now()}.jpg`;
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+  };
+
+  return (
+    <div className="space-y-6 print:hidden">
+      <h2 className="text-3xl font-bold text-center text-orange-800">प्रभु दर्शन</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {data.darshanImages.map((img, index) => (
+          <div key={index} className="aspect-square bg-gray-200 rounded-xl overflow-hidden shadow-lg group relative">
+            <img src={img} alt={`Darshan ${index + 1}`} className="w-full h-full object-cover" />
+            <button onClick={() => handleDownload(img)} className="absolute bottom-4 right-4 bg-white p-2 rounded-full text-gray-800 shadow-lg hover:bg-orange-100 transition-colors z-10" title="Download Image">
+              <Download size={24} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ScheduleView({ data }) {
+  return (
+    <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden print:hidden">
+      <div className="bg-orange-600 p-6 text-white text-center"><Clock className="w-12 h-12 mx-auto mb-2 opacity-80" /><h2 className="text-2xl font-bold">Aarti Schedule</h2></div>
+      <div className="divide-y divide-gray-100">
+        {data.aartiTimings.map((item) => (
+          <div key={item.id} className="flex justify-between items-center p-4"><span className="font-medium text-lg text-gray-800">{item.name}</span><span className="font-bold text-orange-600 bg-orange-100 px-3 py-1 rounded-full">{item.time}</span></div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EventsView({ data }) {
+  return (
+    <div className="space-y-6 print:hidden">
+      <h2 className="text-3xl font-bold text-center text-orange-800 mb-8">आगामी कार्यक्रम</h2>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {data.upcomingEvents.map((event, i) => (
+          <div key={i} className="bg-white border-t-4 border-red-500 rounded-lg shadow-md p-6">
+            <h3 className="text-xl font-bold text-gray-800 mb-2">{event.name}</h3>
+            <p className="text-gray-500 flex items-center"><Calendar size={16} className="mr-2" /> {event.date}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MembersView({ data }) {
+  return (
+    <div className="space-y-8 print:hidden">
+      <div className="text-center"><h2 className="text-3xl font-bold text-orange-800">मंदिर समिति</h2></div>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {data.communityMembers.map((member, i) => (
+          <div key={i} className="bg-white rounded-xl shadow-md overflow-hidden border border-orange-100 p-6 flex flex-col items-center text-center">
+            <div className="w-24 h-24 rounded-full bg-gray-200 overflow-hidden mb-4">
+                {member.photo ? <img src={member.photo} className="w-full h-full object-cover"/> : <Users className="w-full h-full p-4 text-gray-400"/>}
+            </div>
+            <h3 className="text-xl font-bold text-gray-900">{member.name}</h3>
+            <p className="text-orange-600 font-medium">{member.role}</p>
+            <p className="text-gray-500 text-sm mt-2">{member.phone}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DonateView({ data }) {
+  return (
+    <div className="max-w-xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden print:hidden">
+      <div className="bg-yellow-500 p-8 text-center text-white"><Heart className="w-16 h-16 mx-auto mb-4 animate-pulse" /><h2 className="text-3xl font-bold">Donate</h2></div>
+      <div className="p-8 space-y-6 text-center">
+        <div className="w-48 h-48 bg-gray-100 mx-auto rounded flex items-center justify-center overflow-hidden">
+             {data.qrCodeUrl ? <img src={data.qrCodeUrl} className="w-full h-full object-contain"/> : <span className="text-gray-400">QR Code</span>}
+        </div>
+        <p className="font-bold text-lg">UPI: <span className="text-orange-700">{data.upiId}</span></p>
+        <div className="text-left bg-gray-50 p-4 rounded text-sm">
+            <p><strong>Bank:</strong> {data.bankAccountName}</p>
+            <p><strong>A/C:</strong> {data.bankAccountNumber}</p>
+            <p><strong>IFSC:</strong> {data.bankIfsc}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- ADMIN PANEL ---
+function AdminView({ isLoggedIn, setIsLoggedIn, data, onSave, passwordInput, setPasswordInput, error, setError, updateData }) {
+  const [formData, setFormData] = useState(data);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [currentReceipt, setCurrentReceipt] = useState(null);
+  const [receiptForm, setReceiptForm] = useState({ 
+      name: '', address: 'Village Post Bakhraur', amount: '', mobile: '', purpose: 'Temple Construction', mode: 'Cash', date: new Date().toISOString().split('T')[0] 
+  });
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // New Darshan URL State
+  const [newDarshanUrl, setNewDarshanUrl] = useState('');
+
+  useEffect(() => { setFormData(data); }, [data]);
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (passwordInput === (data.adminPassword || "jaihanuman")) {
+      setIsLoggedIn(true); setError('');
+    } else { setError('गलत पासवर्ड!'); }
+  };
+
+  const handlePasswordChange = () => {
+      if(newPassword.length < 4) { alert("Password too short"); return; }
+      const newData = { ...formData, adminPassword: newPassword };
+      setFormData(newData); updateData(newData);
+      alert("Password updated!"); setShowPasswordChange(false); setNewPassword('');
+  };
+
+  const handleChange = (field, value) => {
+      setFormData({...formData, [field]: value});
+  };
+
+  // --- Darshan Images Logic ---
+  const handleDarshanUpload = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              setFormData({ ...formData, darshanImages: [...formData.darshanImages, reader.result] });
+          };
+          reader.readAsDataURL(file);
+      }
+  };
+  
+  const handleDarshanUrlAdd = () => {
+      if (newDarshanUrl) {
+          setFormData({ ...formData, darshanImages: [...formData.darshanImages, newDarshanUrl] });
+          setNewDarshanUrl('');
+      }
+  };
+
+  const removeDarshanImage = (index) => {
+      const newImages = formData.darshanImages.filter((_, i) => i !== index);
+      setFormData({ ...formData, darshanImages: newImages });
+  };
+
+  // --- Donation Logic ---
+  const handleQrUpload = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              setFormData({ ...formData, qrCodeUrl: reader.result });
+          };
+          reader.readAsDataURL(file);
+      }
+  };
+
+  // --- Events Logic ---
+  const addEvent = () => {
+      setFormData({ ...formData, upcomingEvents: [...formData.upcomingEvents, { name: "", date: "" }] });
+  };
+  const updateEvent = (index, field, value) => {
+      const newEvents = [...formData.upcomingEvents];
+      newEvents[index][field] = value;
+      setFormData({ ...formData, upcomingEvents: newEvents });
+  };
+  const removeEvent = (index) => {
+      const newEvents = formData.upcomingEvents.filter((_, i) => i !== index);
+      setFormData({ ...formData, upcomingEvents: newEvents });
+  };
+
+  // --- Members Logic ---
+  const addMember = () => setFormData({ ...formData, communityMembers: [...formData.communityMembers, { name: "", role: "", phone: "", photo: "" }] });
+  const handleMemberChange = (index, field, value) => {
+      const newMembers = [...formData.communityMembers];
+      newMembers[index][field] = value;
+      setFormData({ ...formData, communityMembers: newMembers });
+  };
+  const handleMemberPhotoUpload = (e, index) => {
+      const file = e.target.files[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+             handleMemberChange(index, 'photo', reader.result);
+          };
+          reader.readAsDataURL(file);
+      }
+  };
+
+  const generateReceipt = (e) => {
+    e.preventDefault();
+    if (!receiptForm.name || !receiptForm.amount) { alert("Details missing"); return; }
+    const lastId = formData.donationHistory.length > 0 ? parseInt(formData.donationHistory[0].receiptNo) : 1023;
+    const [y, m, d] = receiptForm.date.split('-');
+    const formattedDate = `${d} / ${m} / ${y}`;
+
+    const newReceipt = { 
+        id: Date.now(), 
+        receiptNo: lastId + 1, 
+        ...receiptForm, 
+        date: formattedDate 
+    };
+    
+    const updatedData = { ...formData, donationHistory: [newReceipt, ...(formData.donationHistory || [])] };
+    setFormData(updatedData);
+    updateData(updatedData); 
+    setCurrentReceipt(newReceipt);
+    setShowReceiptModal(true);
+    setReceiptForm(prev => ({ ...prev, name: '', amount: '' }));
+  };
+
+  const filteredReceipts = (formData.donationHistory || []).filter(r => r.name.toLowerCase().includes(searchTerm.toLowerCase()) || r.receiptNo.toString().includes(searchTerm));
+
+  if (!isLoggedIn) return (
+      <div className="max-w-md mx-auto mt-10 bg-white p-8 rounded-xl shadow-lg print:hidden">
+        <h2 className="text-2xl font-bold text-center mb-6">Admin Login</h2>
+        <form onSubmit={handleLogin} className="space-y-4">
+          <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full px-4 py-2 border rounded" placeholder="Password"/>
+          {error && <p className="text-red-500 text-sm">{error}</p>}
+          <button type="submit" className="w-full bg-orange-600 text-white py-2 rounded font-bold">Login</button>
+        </form>
+      </div>
+  );
+
+  if (showReceiptModal && currentReceipt) {
+      return (
+          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 overflow-auto print:bg-white print:p-0 print:block">
+              <div className="bg-white w-full max-w-[850px] shadow-2xl overflow-hidden print:shadow-none print:w-full">
+                  <div className="bg-gray-800 text-white p-4 flex justify-between items-center print:hidden">
+                      <div className="flex items-center gap-4">
+                        <button onClick={() => setShowReceiptModal(false)} className="bg-gray-600 px-3 py-1 rounded hover:bg-gray-500 flex items-center text-sm"><ChevronRight className="rotate-180 mr-1" size={16}/> Back</button>
+                        <h3 className="font-bold">Receipt Preview</h3>
+                      </div>
+                      <div className="flex gap-2">
+                          <button onClick={() => window.print()} className="bg-green-600 px-4 py-2 rounded flex items-center"><Printer className="mr-2" size={16}/> Print / Save PDF</button>
+                      </div>
+                  </div>
+                  <div className="p-8 print:p-0"><ReceiptTemplate receipt={currentReceipt} templeData={formData} /></div>
+              </div>
+          </div>
+      );
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden print:hidden">
+      <div className="bg-gray-800 p-4 text-white flex justify-between items-center sticky top-16 z-40">
+        <h2 className="text-xl font-bold flex items-center"><Edit className="mr-2" /> Admin Dashboard</h2>
+        <div className="flex gap-2">
+            <button onClick={() => onSave(formData)} className="bg-green-600 px-4 py-2 rounded font-bold hover:bg-green-700 flex items-center"><Save size={16} className="mr-1" /> Save All</button>
+            <button onClick={() => setIsLoggedIn(false)} className="bg-red-600 px-3 py-2 rounded hover:bg-red-700"><LogOut size={16} /></button>
+        </div>
+      </div>
+      <div className="p-6 space-y-8">
+        
+        {/* --- GENERAL & NOTICE --- */}
+        <div className="bg-orange-50 p-4 rounded border">
+            <h3 className="text-lg font-bold text-orange-800 mb-2">General & Notice</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="text" value={formData.templeName} onChange={e => handleChange('templeName', e.target.value)} className="p-2 border rounded" placeholder="Temple Name"/>
+                <input type="text" value={formData.location} onChange={e => handleChange('location', e.target.value)} className="p-2 border rounded" placeholder="Location"/>
+                <textarea value={formData.notice} onChange={e => handleChange('notice', e.target.value)} className="p-2 border rounded md:col-span-2" placeholder="Notice Board Text" rows="2"/>
+            </div>
+        </div>
+
+        {/* --- DONATION SETTINGS --- */}
+        <div className="bg-white p-4 rounded border">
+            <h3 className="text-lg font-bold text-orange-800 mb-2 flex items-center"><CreditCard className="mr-2"/> Donation & Bank Details</h3>
+            <div className="flex flex-col md:flex-row gap-6">
+                <div className="shrink-0 text-center">
+                    <div className="w-32 h-32 bg-gray-100 border rounded flex items-center justify-center mb-2 overflow-hidden">
+                        {formData.qrCodeUrl ? <img src={formData.qrCodeUrl} className="w-full h-full object-contain"/> : "No QR"}
+                    </div>
+                    <label className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded cursor-pointer">
+                        Upload QR <input type="file" hidden onChange={handleQrUpload}/>
+                    </label>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-1">
+                    <input type="text" value={formData.bankAccountName} onChange={e => handleChange('bankAccountName', e.target.value)} className="p-2 border rounded" placeholder="Account Name"/>
+                    <input type="text" value={formData.bankAccountNumber} onChange={e => handleChange('bankAccountNumber', e.target.value)} className="p-2 border rounded" placeholder="Account Number"/>
+                    <input type="text" value={formData.bankIfsc} onChange={e => handleChange('bankIfsc', e.target.value)} className="p-2 border rounded" placeholder="IFSC Code"/>
+                    <input type="text" value={formData.upiId} onChange={e => handleChange('upiId', e.target.value)} className="p-2 border rounded" placeholder="UPI ID"/>
+                </div>
+            </div>
+        </div>
+
+        {/* --- DARSHAN GALLERY --- */}
+        <div className="bg-white p-4 rounded border">
+            <h3 className="text-lg font-bold text-orange-800 mb-2 flex items-center"><ImageIcon className="mr-2"/> Darshan Gallery</h3>
+            
+            {/* Add by URL */}
+            <div className="flex gap-2 mb-4">
+                <input 
+                    type="text" 
+                    value={newDarshanUrl} 
+                    onChange={(e) => setNewDarshanUrl(e.target.value)} 
+                    placeholder="Paste Image URL here..." 
+                    className="flex-1 p-2 border rounded text-sm"
+                />
+                <button onClick={handleDarshanUrlAdd} className="bg-orange-600 text-white px-3 py-1 rounded text-sm whitespace-nowrap">Add URL</button>
+            </div>
+
+            <div className="flex flex-wrap gap-4">
+                {formData.darshanImages.map((img, i) => (
+                    <div key={i} className="relative w-24 h-24 border rounded overflow-hidden shadow-sm group">
+                        <img src={img} className="w-full h-full object-cover"/>
+                        <button 
+                            onClick={() => removeDarshanImage(i)} 
+                            className="absolute top-0 right-0 bg-red-600 text-white p-1 rounded-bl shadow-sm"
+                            title="Delete Photo"
+                        >
+                            <X size={14}/>
+                        </button>
+                    </div>
+                ))}
+                <label className="w-24 h-24 border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 rounded">
+                    <Upload className="text-gray-400 mb-1"/>
+                    <span className="text-[10px] text-gray-500 font-bold">Upload File</span>
+                    <input type="file" hidden accept="image/*" onChange={handleDarshanUpload}/>
+                </label>
+            </div>
+        </div>
+
+        {/* --- EVENTS --- */}
+        <div className="bg-white p-4 rounded border">
+            <div className="flex justify-between mb-2">
+                <h3 className="text-lg font-bold text-orange-800 flex items-center"><Calendar className="mr-2"/> Events</h3>
+                <button onClick={addEvent} className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">Add Event</button>
+            </div>
+            <div className="space-y-2">
+                {formData.upcomingEvents.map((ev, i) => (
+                    <div key={i} className="flex gap-2">
+                        <input type="text" value={ev.name} onChange={e => updateEvent(i, 'name', e.target.value)} className="p-1 border rounded flex-1" placeholder="Event Name"/>
+                        <input type="text" value={ev.date} onChange={e => updateEvent(i, 'date', e.target.value)} className="p-1 border rounded w-1/3" placeholder="Date"/>
+                        <button onClick={() => removeEvent(i)} className="text-red-500"><Trash2 size={16}/></button>
+                    </div>
+                ))}
+            </div>
+        </div>
+
+        {/* --- COMMITTEE MEMBERS --- */}
+        <div className="bg-white p-4 rounded border">
+            <div className="flex justify-between mb-2">
+                <h3 className="text-lg font-bold text-orange-800 flex items-center"><Users className="mr-2"/> Committee Members</h3>
+                <button onClick={addMember} className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">Add Member</button>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+                {formData.communityMembers.map((member, index) => (
+                    <div key={index} className="bg-gray-50 p-2 rounded border flex gap-2 items-start">
+                         <div className="shrink-0 text-center">
+                             <div className="w-12 h-12 bg-white border rounded-full overflow-hidden mb-1">
+                                {member.photo ? <img src={member.photo} className="w-full h-full object-cover"/> : <Users className="w-full h-full p-2 text-gray-300"/>}
+                             </div>
+                             <label className="text-[10px] text-blue-500 cursor-pointer">
+                                 Upload <input type="file" hidden onChange={(e) => handleMemberPhotoUpload(e, index)} />
+                             </label>
+                         </div>
+                         <div className="flex-1 space-y-1">
+                             <input type="text" value={member.name} onChange={(e) => handleMemberChange(index, 'name', e.target.value)} className="w-full p-1 border rounded text-xs" placeholder="Name"/>
+                             <input type="text" value={member.role} onChange={(e) => handleMemberChange(index, 'role', e.target.value)} className="w-full p-1 border rounded text-xs" placeholder="Role/Position"/>
+                             <input type="text" value={member.phone} onChange={(e) => handleMemberChange(index, 'phone', e.target.value)} className="w-full p-1 border rounded text-xs" placeholder="Phone Number"/>
+                         </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+
+        {/* --- RECEIPT GENERATOR (Existing) --- */}
+        <div className="border-4 border-orange-100 rounded-xl p-6 bg-orange-50">
+            <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-bold text-orange-900 flex items-center"><FileText className="mr-2"/> Generate Receipt</h3>
+                <button onClick={() => setShowPasswordChange(!showPasswordChange)} className="text-sm bg-white border px-3 py-1 rounded flex items-center text-gray-600"><Lock size={12} className="mr-1"/> Password</button>
+            </div>
+            {showPasswordChange && (
+               <div className="mb-4 bg-white p-3 rounded shadow flex gap-2 items-center">
+                   <input type="text" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New Admin Password" class="border p-2 rounded flex-1"/>
+                   <button onClick={handlePasswordChange} className="bg-green-600 text-white px-3 py-2 rounded">Update</button>
+               </div>
+            )}
+            <div className="flex flex-col lg:flex-row gap-6">
+                <div className="flex-1 bg-white p-6 rounded-lg shadow-sm border border-orange-200">
+                    <form onSubmit={generateReceipt} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="text-xs font-bold text-gray-500 uppercase">Date</label><input type="date" required value={receiptForm.date} onChange={(e) => setReceiptForm({...receiptForm, date: e.target.value})} className="w-full p-2 border rounded"/></div>
+                        <div><label className="text-xs font-bold text-gray-500 uppercase">Amount (₹)*</label><input type="number" required value={receiptForm.amount} onChange={(e) => setReceiptForm({...receiptForm, amount: e.target.value})} className="w-full p-2 border rounded font-bold text-lg" placeholder="1100"/></div>
+                        <div className="md:col-span-2"><label className="text-xs font-bold text-gray-500 uppercase">Received From (Name)*</label><input type="text" required value={receiptForm.name} onChange={(e) => setReceiptForm({...receiptForm, name: e.target.value})} className="w-full p-2 border rounded bg-yellow-50 focus:ring-2 focus:ring-orange-500" placeholder="Mr. Rajesh Kumar..."/></div>
+                        <div className="md:col-span-2"><label className="text-xs font-bold text-gray-500 uppercase">Address</label><input type="text" value={receiptForm.address} onChange={(e) => setReceiptForm({...receiptForm, address: e.target.value})} className="w-full p-2 border rounded"/></div>
+                        <div><label className="text-xs font-bold text-gray-500 uppercase">Mode</label><select value={receiptForm.mode} onChange={(e) => setReceiptForm({...receiptForm, mode: e.target.value})} className="w-full p-2 border rounded"><option value="Cash">Cash</option><option value="UPI">UPI</option><option value="Cheque">Cheque</option></select></div>
+                        <div className="md:col-span-2"><label className="text-xs font-bold text-gray-500 uppercase">On Account Of</label><input type="text" value={receiptForm.purpose} onChange={(e) => setReceiptForm({...receiptForm, purpose: e.target.value})} className="w-full p-2 border rounded" /></div>
+                        <div className="md:col-span-2 pt-2"><button type="submit" className="w-full bg-orange-700 text-white py-3 rounded-lg font-bold hover:bg-orange-800 shadow-lg flex justify-center items-center"><Printer className="mr-2"/> Generate & Save</button></div>
+                    </form>
+                </div>
+                <div className="lg:w-1/3 bg-white p-4 rounded-lg shadow-sm border h-[500px] flex flex-col">
+                    <h4 className="font-bold text-gray-700 mb-3 border-b pb-2">Recent Receipts</h4>
+                    <div className="relative mb-3"><Search className="absolute left-2 top-2.5 text-gray-400" size={16}/><input type="text" placeholder="Search No. or Name" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-8 p-2 border rounded text-sm"/></div>
+                    <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                        {filteredReceipts.map((rec) => (
+                            <div key={rec.id} onClick={() => {setCurrentReceipt(rec); setShowReceiptModal(true);}} className="p-3 border rounded hover:bg-orange-50 cursor-pointer transition-colors flex justify-between items-center group">
+                                <div><div className="font-bold text-gray-800">#{rec.receiptNo} <span className="text-gray-500 font-normal text-sm">| {rec.name}</span></div><div className="text-xs text-gray-500">{rec.date}</div></div>
+                                <div className="text-right"><div className="font-bold text-green-700">₹{rec.amount}</div><ChevronRight size={14} className="text-gray-300 group-hover:text-orange-500 ml-auto"/></div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+      </div>
+    </div>
+  );
+}
